@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse, Responder, Result};
 use dotenv::dotenv;
+use gcsst_lib::transmute_from_content;
 use serde::{Deserialize, Serialize};
 use shuttle_actix_web::ShuttleActixWeb;
 use std::env;
@@ -43,7 +44,7 @@ fn error_response<T: std::fmt::Debug>(err: T) -> HttpResponse {
 }
 
 async fn transmute(input: web::Json<CssInput>) -> impl Responder {
-    match gcsst_lib::transmute_from_content(&input.css) {
+    match transmute_from_content(&input.css) {
         Ok((duration, json_output)) => HttpResponse::Ok().json(JsonResponse {
             json: json_output,
             duration: duration.to_string(),

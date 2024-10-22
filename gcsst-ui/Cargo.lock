@@ -1016,6 +1016,8 @@ dependencies = [
 [[package]]
 name = "gcsst"
 version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "848f463c409000325d026e4447e09aac412a90074f55172a394eec9cfd82ca09"
 dependencies = [
  "cssparser 0.34.0",
  "glob",
