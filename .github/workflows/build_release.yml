@@ -191,7 +191,7 @@ jobs:
         working-directory: gcsst-ui
         run: cat .env
 
-      - name: Change to gcsst-ui directory
+      - name: change_to_gcsst_ui_dir
         run: cd gcsst-ui
 
       - name: deploy

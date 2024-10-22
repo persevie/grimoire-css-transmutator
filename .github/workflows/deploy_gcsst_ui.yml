@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'gcsst-ui-v*.*.*'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -28,6 +29,9 @@ jobs:
 
       - name: display_env
         run: cat gcsst-ui/.env
+
+      - name: change_to_gcsst_ui_dir
+        run: cd gcsst-ui
 
       - name: deploy
         uses: shuttle-hq/deploy-action@v2
