@@ -30,11 +30,9 @@ jobs:
       - name: display_env
         run: cat gcsst-ui/.env
 
-      - name: change_to_gcsst_ui_dir
-        run: cd gcsst-ui
-
       - name: deploy
         uses: shuttle-hq/deploy-action@v2
         with:
           shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
           project-id: ${{ secrets.SHUTTLE_PROJ_ID }}
+          working-directory: gcsst-ui
