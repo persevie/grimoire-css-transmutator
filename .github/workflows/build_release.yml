@@ -1,0 +1,198 @@
+name: build_and_release_gcsst
+
+on:
+  push:
+    tags:
+      - 'gcsst-v*.*.*'
+
+jobs:
+  # No needed at the moment
+  # build:
+  #   name: build
+  #   runs-on: ${{ matrix.runs-on }}
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - name: linux_x86_64
+  #           runs-on: ubuntu-latest
+  #           target: x86_64-unknown-linux-gnu
+  #           artifact_name: gcsst-linux-x86_64
+  #           artifact_path: gcsst/target/x86_64-unknown-linux-gnu/release/gcsst
+  #         - name: macos_x86_64
+  #           runs-on: macos-latest
+  #           target: x86_64-apple-darwin
+  #           artifact_name: gcsst-macos-x86_64
+  #           artifact_path: gcsst/target/x86_64-apple-darwin/release/gcsst
+  #         - name: macos_arm64
+  #           runs-on: macos-12
+  #           target: aarch64-apple-darwin
+  #           artifact_name: gcsst-macos-arm64
+  #           artifact_path: gcsst/target/aarch64-apple-darwin/release/gcsst
+  #         - name: windows_x86_64
+  #           runs-on: windows-latest
+  #           target: x86_64-pc-windows-msvc
+  #           artifact_name: gcsst-windows-x86_64.exe
+  #           artifact_path: gcsst/target/x86_64-pc-windows-msvc/release/gcsst.exe
+
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: set_up_rust
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: stable
+  #         target: ${{ matrix.target }}
+
+  #     - name: cache_cargo_registry
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ~/.cargo/registry
+  #         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('gcsst/**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-registry-
+
+  #     - name: cache_cargo_git
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ~/.cargo/git
+  #         key: ${{ runner.os }}-cargo-git-${{ hashFiles('gcsst/**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-git-
+
+  #     - name: cache_cargo_build
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: gcsst/target
+  #         key: ${{ runner.os }}-build-${{ matrix.target }}-${{ hashFiles('gcsst/**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-build-${{ matrix.target }}-
+
+  #     - name: build_project
+  #       working-directory: gcsst
+  #       run: cargo build --release --target ${{ matrix.target }}
+
+  #     - name: prepare_artifact
+  #       run: |
+  #         mkdir -p artifacts
+  #         cp "${{ matrix.artifact_path }}" "artifacts/${{ matrix.artifact_name }}"
+
+  #     - name: upload_artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: ${{ matrix.artifact_name }}
+  #         path: artifacts/${{ matrix.artifact_name }}
+
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    # needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      # No needed at the moment
+      # - name: download_artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: gcsst-linux-x86_64
+      #     path: ./artifacts/linux
+
+      # - name: download_macos_artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: gcsst-macos-x86_64
+      #     path: ./artifacts/macos-x86_64
+
+      # - name: download_macos_arm64_artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: gcsst-macos-arm64
+      #     path: ./artifacts/macos-arm64
+
+      # - name: download_windows_artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: gcsst-windows-x86_64.exe
+      #     path: ./artifacts/windows
+
+      - name: create_github_release
+        uses: softprops/action-gh-release@v1
+        with:
+          # files: ./artifacts/**/*
+          body: "Release of gcsst version ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: publish_to_crates_io
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set_up_rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: cache_cargo_registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('gcsst/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: cache_cargo_git
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('gcsst/**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: login_to_crates_io
+        run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: publish_to_crates_io
+        working-directory: gcsst
+        run: cargo publish
+
+  deploy:
+    name: deploy_gscsst_ui_after_release
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: get_latest_tags
+        run: |
+          echo "Listing all tags:"
+          git tag --list
+
+          GCSST_TAG=$(git tag --list "gcsst-v*" --sort=-creatordate | head -n 1)
+          GCSST_UI_TAG=$(git tag --list "gcsst-ui-v*" --sort=-creatordate | head -n 1)
+
+          echo "GCSST_TAG: $GCSST_TAG"
+          echo "GCSST_UI_TAG: $GCSST_UI_TAG"
+
+          GCSST_VERSION=$(echo "$GCSST_TAG" | sed 's/gcsst-v//')
+          GCSST_UI_VERSION=$(echo "$GCSST_UI_TAG" | sed 's/gcsst-ui-v//')
+
+          echo "GCSST_VERSION=${GCSST_VERSION}" > gcsst-ui/.env
+          echo "GCSST_UI_VERSION=${GCSST_UI_VERSION}" >> gcsst-ui/.env
+
+      - name: display_env
+        working-directory: gcsst-ui
+        run: cat .env
+
+      - name: deploy
+        uses: shuttle-hq/deploy-action@v2
+        with:
+          shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
+          project-id: ${{ secrets.SHUTTLE_PROJ_ID }}

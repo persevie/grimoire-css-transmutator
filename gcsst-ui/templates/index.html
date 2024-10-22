@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>gcsst web</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=IBM+Plex+Sans:400,500&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css"
+      id="cm-dark-theme"
+    />
+    <style>
+      .CodeMirror {
+        flex-grow: 1;
+        height: auto;
+        background-color: var(--editor-bg);
+      }
+    </style>
+    <link rel="stylesheet" href="/static/build.css" />
+    
+  <style data-grimoire-critical-css>body[data-theme=dark]{--accent-color:#0e639c;--bg-color:#1e1e1e;--border-color:#3c3c3c;--button-bg:#0e639c;--button-disabled-bg:#3c3c3c;--button-disabled-text:gray;--button-hover-bg:#17b;--button-text-color:#fff;--divider-bg:#3c3c3c;--editor-bg:#1e1e1e;--font-family:"IBM Plex Sans",sans-serif;--header-footer-bg:#252526;--hint-color:#888;--link-color:#fff;--link-hover-color:#1e90ff;--text-color:#d4d4d4;--toast-bg:#333;--toast-text-color:#fff}</style></head>
+  <body
+    class="height=100vh display=flex flex-direction=column background-color=var(--bg-color) margin=0 color=var(--text-color) font-family=var(--font-family) overflow=hidden"
+    data-theme="dark"
+  >
+    <header
+      class="padding=6px_12px background-color=var(--header-footer-bg) flex-shrink=0 justify-content=space-between display=flex align-items=center border-bottom=1px_solid_var(--border-color)"
+    >
+      <div>
+        <strong>gcsst ui</strong>
+      </div>
+      <div>
+        <span class="color=var(--hint-color) font-size=0.7em margin-right=10px"
+          >[Ctrl/Cmd + Enter]</span
+        >
+        <button
+          id="transmuteButton"
+          class="{:disabled}color=var(--button-disabled-text) {:hover:not(:disabled)}box-shadow=0_2px_4px_rgba(0,_0,_0,_0.1) border-radius=4px cursor=pointer {:hover:not(:disabled)}background-color=var(--button-hover-bg) color=var(--button-text-color) {:active:not(:disabled)}box-shadow=inset_0_1px_3px_rgba(0,_0,_0,_0.2) {:active:not(:disabled)}background-color=var(--button-hover-bg) padding=5px_10px background-color=var(--button-bg) display=inline-flex transition=background-color_0.2s,_box-shadow_0.2s {:disabled}cursor=not-allowed {:disabled}background-color=var(--button-disabled-bg) font-size=13px border=none align-items=center"
+          disabled
+          title="Add your CSS to transmute first"
+        >
+          Transmute
+        </button>
+      </div>
+    </header>
+    <main
+      class="display=flex flex-grow=1 (max-width:_768px)__flex-direction=column overflow=hidden"
+    >
+      <section
+        class="background-color=var(--editor-bg) display=flex (max-width:_768px)__height=50% (max-width:_768px)__width=100% flex-direction=column flex-grow=1 min-width=200px overflow=hidden"
+        id="cssPane"
+      >
+        <div
+          class="border-bottom=1px_solid_var(--border-color) padding=4px_8px font-weight=500 background-color=var(--header-footer-bg) font-size=0.85em"
+        >
+          CSS
+        </div>
+        <textarea id="cssEditor"></textarea>
+      </section>
+      <div
+        class="(max-width:_768px)__width=100% transition=background-color_0.2s width=4px (max-width:_768px)__height=4px {:hover}background-color=var(--accent-color) (max-width:_768px)__cursor=row-resize flex-shrink=0 background-color=var(--divider-bg) cursor=col-resize"
+        id="divider"
+      ></div>
+      <section
+        class="background-color=var(--editor-bg) display=flex (max-width:_768px)__height=50% (max-width:_768px)__width=100% flex-direction=column flex-grow=1 min-width=200px overflow=hidden"
+        id="jsonPane"
+      >
+        <div
+          class="border-bottom=1px_solid_var(--border-color) padding=4px_8px font-weight=500 background-color=var(--header-footer-bg) font-size=0.85em"
+        >
+          Transmuted JSON
+        </div>
+        <textarea id="jsonEditor"></textarea>
+      </section>
+    </main>
+    <footer
+      class="{_a}color=var(--link-color) background-color=var(--header-footer-bg) align-items=center display=flex {_a:hover}color=var(--link-hover-color) justify-content=space-between border-bottom=1px_solid_var(--border-color) font-size=0.8em padding=6px_12px flex-shrink=0 border-top=1px_solid_var(--border-color)"
+    >
+      <div>
+        <span id="gcsstUiVersion">gcsst ui</span>
+        |
+        <span id="gcsstVersion">gcsst</span>
+        |
+        <a
+          href="https://github.com/persevie/grimoire-css-transmute/tree/main"
+          target="_blank"
+          >repo
+        </a>
+      </div>
+      <div>
+        Transmutation Duration: <span id="transmutationDuration">-</span> s
+      </div>
+    </footer>
+
+    <div
+      class="position=fixed bottom=50px flex-direction=column right=16px gap=10px z-index=1000 display=flex"
+      id="toastContainer"
+    ></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script>
+      const cssEditorElement = document.getElementById("cssEditor");
+      const jsonEditorElement = document.getElementById("jsonEditor");
+      const transmuteButton = document.getElementById("transmuteButton");
+      const transmutationDurationElement = document.getElementById(
+        "transmutationDuration"
+      );
+      const divider = document.getElementById("divider");
+      const cssPane = document.getElementById("cssPane");
+      const jsonPane = document.getElementById("jsonPane");
+      const toastContainer = document.getElementById("toastContainer");
+
+      const cssEditor = CodeMirror.fromTextArea(cssEditorElement, {
+        mode: "text/css",
+        lineNumbers: true,
+        theme: "dracula",
+        viewportMargin: Infinity,
+      });
+
+      const jsonEditor = CodeMirror.fromTextArea(jsonEditorElement, {
+        mode: "application/json",
+        lineNumbers: true,
+        theme: "dracula",
+        readOnly: true,
+        viewportMargin: Infinity,
+      });
+
+      function updateTransmuteButtonState() {
+        const cssContent = cssEditor.getValue().trim();
+        transmuteButton.disabled = cssContent === "";
+        transmuteButton.title = cssContent ? "" : "Enter CSS code to enable";
+      }
+
+      cssEditor.on("change", updateTransmuteButtonState);
+      updateTransmuteButtonState();
+
+      function showToast(type, message) {
+        const toast = document.createElement("div");
+        toast.classList.add(
+          "g!padding=10px_15px;",
+          "g!animation=slideIn_0.3s_ease-out;",
+          "g!color=var(--toast-text-color);",
+          "g!display=flex;",
+          "g!box-shadow=0_2px_8px_rgba(0,0,0,0.15);",
+          "g!align-items=center;",
+          "g!width=300px;",
+          "g!border-radius=4px;",
+          "g!background-color=var(--toast-bg);"
+        );
+        toast.innerHTML = `<span class="flex-grow=1 font-size=0.9em">${type}: ${message}</span><button class="margin-left=10px padding=0 cursor=pointer font-size=1.2em border=none {:hover}color=var(--accent-color) color=inherit background=none">×</button>`;
+
+        toastContainer.appendChild(toast);
+
+        toast.querySelector("button").onclick = () =>
+          toastContainer.removeChild(toast);
+      }
+
+      function handleTransmute() {
+        if (transmuteButton.disabled) return;
+
+        transmuteButton.disabled = true;
+        transmuteButton.textContent = "Transmuting...";
+
+        fetch("/transmute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ css: cssEditor.getValue() }),
+        })
+          .then((response) =>
+            response.ok ? response.json() : Promise.reject("Invalid input")
+          )
+          .then((result) => {
+            jsonEditor.setValue(result.json);
+            transmutationDurationElement.textContent = result.duration;
+            showToast("Success", "Transmutation completed");
+          })
+          .catch((error) =>
+            showToast("Error", "Transmutation failed: " + error)
+          )
+          .finally(() => {
+            transmuteButton.disabled = false;
+            transmuteButton.textContent = "Transmute";
+          });
+      }
+
+      transmuteButton.addEventListener("click", handleTransmute);
+
+      document.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          handleTransmute();
+        }
+      });
+
+      let isResizing = false;
+
+      divider.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        isResizing = true;
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!isResizing) return;
+
+        if (window.innerWidth > 768) {
+          const offsetRight = document.body.clientWidth - e.clientX;
+          cssPane.style.width = `calc(100% - ${
+            offsetRight + divider.offsetWidth / 2
+          }px)`;
+          jsonPane.style.width = `${offsetRight - divider.offsetWidth / 2}px`;
+        } else {
+          const offsetBottom = document.body.clientHeight - e.clientY;
+          cssPane.style.height = `calc(100% - ${
+            offsetBottom + divider.offsetHeight / 2
+          }px)`;
+          jsonPane.style.height = `${
+            offsetBottom - divider.offsetHeight / 2
+          }px`;
+        }
+
+        cssEditor.refresh();
+        jsonEditor.refresh();
+      });
+
+      document.addEventListener("mouseup", () => (isResizing = false));
+
+      function adjustLayout() {
+        if (window.innerWidth <= 768) {
+          divider.style.cursor = "row-resize";
+          cssPane.style.width = "100%";
+          jsonPane.style.width = "100%";
+          cssPane.style.height = "50%";
+          jsonPane.style.height = "50%";
+          divider.style.width = "100%";
+          divider.style.height = "4px";
+        } else {
+          divider.style.cursor = "col-resize";
+          cssPane.style.width = "50%";
+          jsonPane.style.width = "50%";
+          cssPane.style.height = "100%";
+          jsonPane.style.height = "100%";
+          divider.style.width = "4px";
+          divider.style.height = "100%";
+        }
+        cssEditor.refresh();
+        jsonEditor.refresh();
+      }
+
+      window.addEventListener("resize", adjustLayout);
+      adjustLayout();
+
+      function fetchVersions() {
+        fetch("/versions")
+          .then((response) => response.json())
+          .then((data) => {
+            const gcsstUiVersionElement =
+              document.getElementById("gcsstUiVersion");
+            const gcsstVersionElement = document.getElementById("gcsstVersion");
+
+            if (gcsstUiVersionElement) {
+              gcsstUiVersionElement.textContent = `gcsst ui version: ${data.gcsst_ui_version}`;
+            }
+
+            if (gcsstVersionElement) {
+              gcsstVersionElement.textContent = `gcsst version: ${data.gcsst_version}`;
+            }
+          })
+          .catch((error) => {
+            showToast("Error", "Failed to fetch versions: " + error);
+          });
+      }
+
+      document.addEventListener("DOMContentLoaded", fetchVersions);
+    </script>
+  </body>
+</html>
