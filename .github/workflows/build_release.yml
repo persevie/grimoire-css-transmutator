@@ -191,6 +191,9 @@ jobs:
         working-directory: gcsst-ui
         run: cat .env
 
+      - name: Change to gcsst-ui directory
+        run: cd gcsst-ui
+
       - name: deploy
         uses: shuttle-hq/deploy-action@v2
         with:
