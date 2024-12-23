@@ -1,6 +1,6 @@
 [package]
 name = "gcsst"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 authors = ["Dmitrii Shatokhin <dmtrshatokhin@gmail.com>"]
 description = "A tool for seamlessly transforming CSS into Grimoire CSS spells."
@@ -26,7 +26,7 @@ tempfile = "3.13.0"
 [dependencies]
 cssparser = "0.34.0"
 glob = "0.3.1"
-grimoire_css = "1.1.0"
+grimoire_css = "1.2.0"
 regex = "1.11.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

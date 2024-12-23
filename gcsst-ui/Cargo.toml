@@ -1,6 +1,6 @@
 [package]
 name = "gcsst-ui"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [profile.release]
@@ -11,7 +11,7 @@ codegen-units = 1
 actix-web = "4.3.1"
 shuttle-actix-web = "0.48.0"
 shuttle-runtime = "0.48.0"
-grimoire_css = "1.1.0"
+grimoire_css = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

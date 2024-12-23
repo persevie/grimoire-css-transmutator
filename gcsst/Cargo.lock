@@ -381,7 +381,7 @@ dependencies = [
 
 [[package]]
 name = "gcsst"
-version = "0.5.0"
+version = "0.7.0"
 dependencies = [
  "cssparser 0.34.0",
  "glob",
@@ -411,9 +411,9 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "grimoire_css"
-version = "1.0.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b72987e924793c2aaa4b79fa30775d98187c9d6d211882dbb4111313e1a7763"
+checksum = "31313e4575b10b6ddb4b97fd44a29fbf904c85a108efbeeb9607dd1198867e5c"
 dependencies = [
  "console",
  "glob",
@@ -421,7 +421,6 @@ dependencies = [
  "lazy_static",
  "lightningcss",
  "once_cell",
- "rayon",
  "regex",
  "serde",
  "serde_json",
