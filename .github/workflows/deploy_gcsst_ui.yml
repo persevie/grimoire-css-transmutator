@@ -42,6 +42,6 @@ jobs:
           shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
           project-id: ${{ secrets.SHUTTLE_PROJ_ID }}
           working-directory: gcsst-ui
-        env:
-          GCSST_VERSION: ${{ steps.get_latest_tags.outputs.GCSST_VERSION }}
-          GCSST_UI_VERSION: ${{ steps.get_latest_tags.outputs.GCSST_UI_VERSION }}
+          secrets: |
+            GCSST_VERSION=${{ steps.get_latest_tags.outputs.GCSST_VERSION }}
+            GCSST_UI_VERSION=${{ steps.get_latest_tags.outputs.GCSST_UI_VERSION }}
