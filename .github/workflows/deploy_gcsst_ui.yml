@@ -28,13 +28,13 @@ jobs:
           GCSST_VERSION=$(echo "$GCSST_TAG" | sed 's/gcsst-v//')
           GCSST_UI_VERSION=$(echo "$GCSST_UI_TAG" | sed 's/gcsst-ui-v//')
 
-          echo "::set-output name=GCSST_VERSION::${GCSST_VERSION}"
-          echo "::set-output name=GCSST_UI_VERSION::${GCSST_UI_VERSION}"
+          echo "GCSST_VERSION=${GCSST_VERSION}" >> $GITHUB_OUTPUT
+          echo "GCSST_UI_VERSION=${GCSST_UI_VERSION}" >> $GITHUB_OUTPUT
 
       - name: display_env
         run: |
-          echo "GCSST_VERSION: $GCSST_VERSION"
-          echo "GCSST_UI_VERSION: $GCSST_UI_VERSION"
+          echo "GCSST_VERSION: ${{ steps.get_latest_tags.outputs.GCSST_VERSION }}"
+          echo "GCSST_UI_VERSION: ${{ steps.get_latest_tags.outputs.GCSST_UI_VERSION }}"
 
       - name: deploy
         uses: shuttle-hq/deploy-action@v2
