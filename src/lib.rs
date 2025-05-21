@@ -1,7 +1,3 @@
-/*!
-grimoire_css_transmute (gcsst) is a tool designed to facilitate migration to Grimoire CSS.
-*/
-
 use std::{
     collections::{HashMap, HashSet},
     fs::{self},
@@ -11,21 +7,22 @@ use std::{
 
 use cssparser::{Parser, ParserInput, SourcePosition, Token};
 use glob::glob;
-use grimoire_css_lib::core::{spell::Spell, Config, GrimoireCSSError};
+use grimoire_css_lib::{GrimoireCssError, Spell};
 use regex::Regex;
 use serde::Serialize;
 use serde_json::to_string_pretty;
 
 #[derive(Debug, Serialize)]
 struct Transmuted {
-    pub classes: Vec<TransmutedClass>,
+    pub scrolls: Vec<TransmutedClass>,
 }
 
 #[derive(Debug, Serialize)]
 struct TransmutedClass {
     pub name: String,
     pub spells: Vec<String>,
-    pub oneliner: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oneliner: Option<String>,
 }
 
 type TransmutedMap = HashMap<String, HashSet<String>>;
@@ -47,15 +44,33 @@ struct ParserState {
 }
 
 /// Reads and cleans multiple CSS files (paths mode).
-fn read_and_clean_files(paths: &[PathBuf]) -> Result<String, GrimoireCSSError> {
+fn read_and_clean_files(paths: &[PathBuf]) -> Result<String, GrimoireCssError> {
     let comment_regex = Regex::new(r"(?s)/\*.*?\*/").unwrap();
-    let mut all_contents = String::new();
+
+    let total_size: usize = paths
+        .iter()
+        .filter_map(|path| fs::metadata(path).ok())
+        .map(|metadata| metadata.len() as usize)
+        .sum();
+
+    // Allocate with the estimated capacity
+    let mut all_contents = String::with_capacity(total_size);
 
     for path in paths {
-        let content = fs::read_to_string(path).map_err(GrimoireCSSError::Io)?;
-        let cleaned_content = comment_regex.replace_all(&content, "").to_string();
-        let final_content = cleaned_content.replace('"', "'");
-        all_contents.push_str(&final_content);
+        let content = fs::read_to_string(path).map_err(|e| {
+            GrimoireCssError::Io(std::io::Error::new(
+                e.kind(),
+                format!("Failed to read '{}': {}", path.display(), e),
+            ))
+        })?;
+
+        // Process and append in one go to minimize intermediate allocations
+        all_contents.push_str(&comment_regex.replace_all(&content, "").replace('"', "'"));
+    }
+
+    // Release excess capacity if significant
+    if all_contents.capacity() > all_contents.len() * 2 {
+        all_contents.shrink_to_fit();
     }
 
     Ok(all_contents)
@@ -107,8 +122,7 @@ fn merge_maps(map1: &mut TransmutedMap, map2: TransmutedMap) {
 fn process_css_into_raw_spells(
     css_input: &str,
     parser_state: &mut ParserState,
-    config: &Config,
-) -> Result<TransmutedMap, GrimoireCSSError> {
+) -> Result<TransmutedMap, GrimoireCssError> {
     let mut result: TransmutedMap = HashMap::new();
     let mut parser_input = ParserInput::new(css_input);
     let mut parser = Parser::new(&mut parser_input);
@@ -134,16 +148,20 @@ fn process_css_into_raw_spells(
                     if parser_state.colons.len() > 2 {
                         parser_state.colons = vec![":".to_string(), ":".to_string()]
                     }
-                    parser_state.focus.push(format!(
-                        "{}{}",
-                        parser_state.colons.join(""),
-                        cow_rc_str
-                    ));
+                    let focus_item = format!("{}{}", parser_state.colons.join(""), cow_rc_str);
+                    parser_state.focus.push(focus_item.clone());
                     parser_state.effects.push(cow_rc_str.to_string());
                     parser_state.effect_started = false;
                     parser_state.colons.clear();
+
+                    if parser_state.current_class.is_empty() {
+                        parser_state.current_class.push_str(&focus_item);
+                    }
                 } else if !parser_state.current_class.is_empty() {
                     parser_state.focus.push(format!("_{}", cow_rc_str));
+                } else {
+                    // This is a tag selector
+                    parser_state.current_class.push_str(cow_rc_str);
                 }
             }
             Token::AtKeyword(cow_rc_str) => {
@@ -176,9 +194,18 @@ fn process_css_into_raw_spells(
                         parser_state.focus_delim.clear();
                     }
                 }
-                ":" => parser_state.focus_delim = d.to_string(),
-                "::" => parser_state.focus_delim = d.to_string(),
-                ">" | "+" | "~" | "*" => parser_state.focus_delim = d.to_string(),
+                ":" | "::" | ">" | "+" | "~" => parser_state.focus_delim = d.to_string(),
+                "*" => {
+                    if parser_state.focus.is_empty() {
+                        parser_state.focus.push(d.to_string());
+
+                        if parser_state.current_class.is_empty() {
+                            parser_state.current_class.push('*');
+                        }
+                    } else {
+                        parser_state.focus_delim = d.to_string();
+                    }
+                }
                 _ => {}
             },
             Token::Colon => {
@@ -186,25 +213,35 @@ fn process_css_into_raw_spells(
                 parser_state.colons.push(":".to_string());
             }
             Token::Comma => {
-                let focus_str = parser_state.focus.join("").trim().replace(" ", "_");
+                if !parser_state.focus.is_empty() {
+                    if !parser_state.focus_delim.is_empty() {
+                        parser_state.focus.push(parser_state.focus_delim.clone());
 
-                let base_raw_spell = if focus_str.is_empty() {
-                    String::new()
+                        parser_state.focus_delim.clear();
+                    }
+
+                    parser_state.focus.push(",".to_string());
                 } else {
-                    format!("{{{}}}", focus_str)
-                };
+                    let focus_str = parser_state.focus.join("").trim().replace(" ", "_");
 
-                parser_state
-                    .raw_classes_spells_map
-                    .entry(parser_state.current_class.to_owned())
-                    .or_default()
-                    .push(base_raw_spell.clone());
+                    let base_raw_spell = if focus_str.is_empty() {
+                        String::new()
+                    } else {
+                        format!("{{{}}}", focus_str)
+                    };
 
-                parser_state.focus.clear();
-                parser_state.effects.clear();
-                parser_state.current_class.clear();
-                parser_state.class_started = false;
-                parser_state.focus_delim.clear();
+                    parser_state
+                        .raw_classes_spells_map
+                        .entry(parser_state.current_class.to_owned())
+                        .or_default()
+                        .push(base_raw_spell.clone());
+
+                    parser_state.focus.clear();
+                    parser_state.effects.clear();
+                    parser_state.current_class.clear();
+                    parser_state.class_started = false;
+                    parser_state.focus_delim.clear();
+                }
             }
             Token::SquareBracketBlock => {
                 let mut squared_focus = "[".to_string();
@@ -251,12 +288,11 @@ fn process_css_into_raw_spells(
                     let res = process_css_into_raw_spells(
                         parser.slice_from(start_nested_pos),
                         &mut state,
-                        config,
                     )?;
                     merge_maps(&mut result, res);
                     parser_state.area = None;
                 } else {
-                    let spell = Spell::new(&parser_state.current_class, config)?;
+                    let spell = Spell::new(&parser_state.current_class, &HashSet::new(), &None)?;
 
                     if spell.is_some() {
                         println!(
@@ -368,49 +404,61 @@ fn process_css_into_raw_spells(
     Ok(result)
 }
 
-pub fn run_transmutation(args: Vec<String>) -> Result<(Duration, String), GrimoireCSSError> {
-    let cwd: PathBuf = std::env::current_dir().map_err(GrimoireCSSError::Io)?;
+/// Run the transmutation process on multiple CSS files.
+/// This is the main entry point for the paths mode.
+pub fn run_transmutation(
+    args: Vec<String>,
+    include_oneliner: bool,
+) -> Result<(Duration, String), GrimoireCssError> {
+    // Get current directory
+    let cwd: PathBuf = std::env::current_dir().map_err(GrimoireCssError::Io)?;
+
+    // Validate input
     if args.is_empty() {
-        return Err(GrimoireCSSError::InvalidInput(
+        return Err(GrimoireCssError::InvalidInput(
             "No CSS file patterns provided.".into(),
         ));
     }
 
+    // Expand file paths based on glob patterns
     let expanded_paths = expand_file_paths(&cwd, &args)?;
-
     if expanded_paths.is_empty() {
-        return Err(GrimoireCSSError::InvalidPath(
+        return Err(GrimoireCssError::InvalidPath(
             "No files found matching the provided patterns.".into(),
         ));
     }
 
     let start_time = Instant::now();
 
-    let config = Config::default();
     let mut parser_state = ParserState::default();
-    let mut res: TransmutedMap = HashMap::new();
 
+    // Read and process CSS files
     let all_css_string = read_and_clean_files(&expanded_paths)?;
-    let processed_css = process_css_into_raw_spells(&all_css_string, &mut parser_state, &config)?;
+    let processed_css = process_css_into_raw_spells(&all_css_string, &mut parser_state)?;
 
-    merge_maps(&mut res, processed_css);
-
-    if res.is_empty() {
-        return Err(GrimoireCSSError::InvalidInput(
+    if processed_css.is_empty() {
+        return Err(GrimoireCssError::InvalidInput(
             "There is nothing to transmute.".into(),
         ));
     }
 
+    // Build the transmuted output structure
     let mut transmuted = Transmuted {
-        classes: Vec::with_capacity(res.len()),
+        scrolls: Vec::with_capacity(processed_css.len()),
     };
 
-    for (name, spells) in res {
+    for (name, spells) in processed_css {
         if !name.is_empty() {
-            let spells_vec = spells.into_iter().collect::<Vec<String>>();
+            // Convert HashSet to Vec to preserve JSON ordering
+            let spells_vec: Vec<String> = spells.into_iter().collect();
 
-            let oneliner = spells_vec.join(" ");
-            transmuted.classes.push(TransmutedClass {
+            let oneliner = if include_oneliner {
+                Some(spells_vec.join(" "))
+            } else {
+                None
+            };
+
+            transmuted.scrolls.push(TransmutedClass {
                 name,
                 spells: spells_vec,
                 oneliner,
@@ -420,34 +468,45 @@ pub fn run_transmutation(args: Vec<String>) -> Result<(Duration, String), Grimoi
 
     let duration = start_time.elapsed();
 
-    let json_data = to_string_pretty(&transmuted).map_err(GrimoireCSSError::Serde)?;
+    let json_data = to_string_pretty(&transmuted).map_err(GrimoireCssError::Serde)?;
 
     Ok((duration, json_data))
 }
 
-pub fn transmute_from_content(css_content: &str) -> Result<(f64, String), GrimoireCSSError> {
+/// Transmutes CSS content to Grimoire CSS format.
+/// This is the main entry point for the content mode.
+pub fn transmute_from_content(
+    css_content: &str,
+    include_oneliner: bool,
+) -> Result<(f64, String), GrimoireCssError> {
     let start_time = Instant::now();
 
-    let config = Config::default();
     let mut parser_state = ParserState::default();
-    let processed_css = process_css_into_raw_spells(css_content, &mut parser_state, &config)?;
+
+    let processed_css = process_css_into_raw_spells(css_content, &mut parser_state)?;
 
     if processed_css.is_empty() {
-        return Err(GrimoireCSSError::InvalidInput(
+        return Err(GrimoireCssError::InvalidInput(
             "There is nothing to transmute.".into(),
         ));
     }
 
     let mut transmuted = Transmuted {
-        classes: Vec::with_capacity(processed_css.len()),
+        scrolls: Vec::with_capacity(processed_css.len()),
     };
 
     for (name, spells) in processed_css {
         if !name.is_empty() {
-            let spells_vec = spells.into_iter().collect::<Vec<String>>();
+            // Convert HashSet to Vec to preserve JSON ordering
+            let spells_vec: Vec<String> = spells.into_iter().collect();
 
-            let oneliner = spells_vec.join(" ");
-            transmuted.classes.push(TransmutedClass {
+            let oneliner = if include_oneliner {
+                Some(spells_vec.join(" "))
+            } else {
+                None
+            };
+
+            transmuted.scrolls.push(TransmutedClass {
                 name,
                 spells: spells_vec,
                 oneliner,
@@ -457,34 +516,38 @@ pub fn transmute_from_content(css_content: &str) -> Result<(f64, String), Grimoi
 
     let duration = start_time.elapsed().as_secs_f64();
 
-    let json_data = to_string_pretty(&transmuted).map_err(GrimoireCSSError::Serde)?;
+    let json_data = to_string_pretty(&transmuted).map_err(GrimoireCssError::Serde)?;
 
     Ok((duration, json_data))
 }
 
 /// Expands glob patterns into a list of file paths.
-fn expand_file_paths(cwd: &Path, patterns: &[String]) -> Result<Vec<PathBuf>, GrimoireCSSError> {
-    let mut paths = Vec::new();
+fn expand_file_paths(cwd: &Path, patterns: &[String]) -> Result<Vec<PathBuf>, GrimoireCssError> {
+    let mut paths = Vec::with_capacity(patterns.len() * 4);
+
     for pattern in patterns {
         let absolute_pattern = if Path::new(pattern).is_absolute() {
-            pattern.clone()
+            pattern.to_string()
         } else {
-            cwd.join(pattern).to_string_lossy().to_string()
+            cwd.join(pattern).to_string_lossy().into_owned()
         };
 
-        for entry in glob(&absolute_pattern)
-            .map_err(|e| GrimoireCSSError::GlobPatternError(e.msg.to_string()))?
+        for entry_result in glob(&absolute_pattern)
+            .map_err(|e| GrimoireCssError::GlobPatternError(e.msg.to_string()))?
         {
-            match entry {
-                Ok(path) => {
-                    if path.is_file() {
-                        paths.push(path);
-                    }
-                }
-                Err(e) => return Err(GrimoireCSSError::InvalidPath(e.to_string())),
+            match entry_result {
+                Ok(path) if path.is_file() => paths.push(path),
+                Ok(_) => {} // Skip directories
+                Err(e) => return Err(GrimoireCssError::InvalidPath(e.to_string())),
             }
         }
     }
+
+    // If no memory waste, return as is; otherwise, shrink to fit
+    if paths.len() < paths.capacity() / 2 {
+        paths.shrink_to_fit();
+    }
+
     Ok(paths)
 }
 
@@ -557,9 +620,8 @@ mod tests {
     fn test_process_css_into_raw_spells() {
         let css_input = ".button { color: red; }";
         let mut parser_state = ParserState::default();
-        let config = Config::default();
 
-        let result = process_css_into_raw_spells(css_input, &mut parser_state, &config);
+        let result = process_css_into_raw_spells(css_input, &mut parser_state);
         assert!(result.is_ok());
         let spells_map = result.unwrap();
         let left_spells = spells_map.get("button").unwrap();
@@ -586,7 +648,7 @@ mod tests {
     #[test]
     fn test_transmute_from_content() {
         let css_input = ".button { color: red; }";
-        let result = transmute_from_content(css_input);
+        let result = transmute_from_content(css_input, false);
         assert!(result.is_ok());
         let (_duration, json_output) = result.unwrap();
         assert!(json_output.contains("\"name\": \"button\""));

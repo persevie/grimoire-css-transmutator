@@ -1,205 +1,190 @@
-name: build_and_release_gcsst
+name: Build and Release
 
 on:
   push:
-    tags:
-      - "gcsst-v*.*.*"
+    branches:
+      - main
+
+permissions:
+  contents: write
 
 jobs:
-  # No needed at the moment
-  # build:
-  #   name: build
-  #   runs-on: ${{ matrix.runs-on }}
-  #   strategy:
-  #     matrix:
-  #       include:
-  #         - name: linux_x86_64
-  #           runs-on: ubuntu-latest
-  #           target: x86_64-unknown-linux-gnu
-  #           artifact_name: gcsst-linux-x86_64
-  #           artifact_path: gcsst/target/x86_64-unknown-linux-gnu/release/gcsst
-  #         - name: macos_x86_64
-  #           runs-on: macos-latest
-  #           target: x86_64-apple-darwin
-  #           artifact_name: gcsst-macos-x86_64
-  #           artifact_path: gcsst/target/x86_64-apple-darwin/release/gcsst
-  #         - name: macos_arm64
-  #           runs-on: macos-12
-  #           target: aarch64-apple-darwin
-  #           artifact_name: gcsst-macos-arm64
-  #           artifact_path: gcsst/target/aarch64-apple-darwin/release/gcsst
-  #         - name: windows_x86_64
-  #           runs-on: windows-latest
-  #           target: x86_64-pc-windows-msvc
-  #           artifact_name: gcsst-windows-x86_64.exe
-  #           artifact_path: gcsst/target/x86_64-pc-windows-msvc/release/gcsst.exe
-
-  #   steps:
-  #     - uses: actions/checkout@v4
-
-  #     - name: set_up_rust
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         profile: minimal
-  #         toolchain: stable
-  #         target: ${{ matrix.target }}
-
-  #     - name: cache_cargo_registry
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.cargo/registry
-  #         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('gcsst/**/Cargo.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-cargo-registry-
-
-  #     - name: cache_cargo_git
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.cargo/git
-  #         key: ${{ runner.os }}-cargo-git-${{ hashFiles('gcsst/**/Cargo.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-cargo-git-
-
-  #     - name: cache_cargo_build
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: gcsst/target
-  #         key: ${{ runner.os }}-build-${{ matrix.target }}-${{ hashFiles('gcsst/**/Cargo.lock') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-build-${{ matrix.target }}-
-
-  #     - name: build_project
-  #       working-directory: gcsst
-  #       run: cargo build --release --target ${{ matrix.target }}
-
-  #     - name: prepare_artifact
-  #       run: |
-  #         mkdir -p artifacts
-  #         cp "${{ matrix.artifact_path }}" "artifacts/${{ matrix.artifact_name }}"
-
-  #     - name: upload_artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: ${{ matrix.artifact_name }}
-  #         path: artifacts/${{ matrix.artifact_name }}
-
-  release:
-    name: release
+  determine_release:
+    name: Determine if release is needed
     runs-on: ubuntu-latest
-    # needs: build
+    outputs:
+      SHOULD_RELEASE: ${{ steps.release_check.outputs.SHOULD_RELEASE }}
+      NEW_TAG: ${{ steps.release_check.outputs.NEW_TAG }}
     steps:
-      - uses: actions/checkout@v4
-
-      # No needed at the moment
-      # - name: download_artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: gcsst-linux-x86_64
-      #     path: ./artifacts/linux
-
-      # - name: download_macos_artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: gcsst-macos-x86_64
-      #     path: ./artifacts/macos-x86_64
-
-      # - name: download_macos_arm64_artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: gcsst-macos-arm64
-      #     path: ./artifacts/macos-arm64
-
-      # - name: download_windows_artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: gcsst-windows-x86_64.exe
-      #     path: ./artifacts/windows
-
-      - name: create_github_release
-        uses: softprops/action-gh-release@v1
+      - name: Checkout Code
+        uses: actions/checkout@v4
         with:
-          # files: ./artifacts/**/*
-          body: "Release of gcsst version ${{ github.ref_name }}"
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Determine if release is needed
+        id: release_check
+        shell: bash
+        run: |
+          git fetch --tags
+          CURRENT_VERSION=$(grep '^version = ' Cargo.toml | head -n1 | awk -F\" '{print $2}')
+          echo "Current version: $CURRENT_VERSION"
+          if git rev-parse "v$CURRENT_VERSION" >/dev/null 2>&1; then
+            echo "Tag v$CURRENT_VERSION already exists. No release needed."
+            echo "SHOULD_RELEASE=false" >> $GITHUB_OUTPUT
+          else
+            echo "No existing tag for version $CURRENT_VERSION. Release is needed."
+            echo "SHOULD_RELEASE=true" >> $GITHUB_OUTPUT
+            echo "NEW_TAG=v$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.runs-on }}
+    needs: determine_release
+    if: needs.determine_release.outputs.SHOULD_RELEASE == 'true'
+    strategy:
+      matrix:
+        include:
+          - name: linux_x86_64
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: gcsst-linux-x86_64
+            artifact_path: target/x86_64-unknown-linux-gnu/release/gcsst
+          - name: macos_x86_64
+            runs-on: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: gcsst-macos-x86_64
+            artifact_path: target/x86_64-apple-darwin/release/gcsst
+          - name: macos_arm64
+            runs-on: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: gcsst-macos-arm64
+            artifact_path: target/aarch64-apple-darwin/release/gcsst
+          - name: windows_x86_64
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: gcsst-windows-x86_64.exe
+            artifact_path: target/x86_64-pc-windows-msvc/release/gcsst.exe
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo git
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-build-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ matrix.target }}-
+
+      - name: Build project
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p artifacts
+          cp "${{ matrix.artifact_path }}" "artifacts/${{ matrix.artifact_name }}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: artifacts/${{ matrix.artifact_name }}
 
   publish:
-    name: publish_to_crates_io
+    name: Publish to crates.io
     runs-on: ubuntu-latest
-    needs: release
+    needs: [determine_release, build]
+    if: needs.determine_release.outputs.SHOULD_RELEASE == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: set_up_rust
+      - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
 
-      - name: cache_cargo_registry
+      - name: Cache Cargo registry
         uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('gcsst/**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
-      - name: cache_cargo_git
+      - name: Cache Cargo git
         uses: actions/cache@v4
         with:
           path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-git-${{ hashFiles('gcsst/**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-git-
 
-      - name: login_to_crates_io
-        run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          cargo publish
 
-      - name: publish_to_crates_io
-        working-directory: gcsst
-        run: cargo publish
-
-  deploy:
-    name: deploy_gscsst_ui_after_release
+  release:
+    name: Release
     runs-on: ubuntu-latest
-    needs: release
+    needs: [determine_release, publish]
+    if: needs.determine_release.outputs.SHOULD_RELEASE == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: get_latest_tags
-        id: get_latest_tags
-        run: |
-          echo "Listing all tags:"
-          git tag --list
-
-          GCSST_TAG=$(git tag --list "gcsst-v*" --sort=-creatordate | head -n 1)
-          GCSST_UI_TAG=$(git tag --list "gcsst-ui-v*" --sort=-creatordate | head -n 1)
-
-          echo "GCSST_TAG: $GCSST_TAG"
-          echo "GCSST_UI_TAG: $GCSST_UI_TAG"
-
-          GCSST_VERSION=$(echo "$GCSST_TAG" | sed 's/gcsst-v//')
-          GCSST_UI_VERSION=$(echo "$GCSST_UI_TAG" | sed 's/gcsst-ui-v//')
-
-          echo "::set-output name=GCSST_VERSION::${GCSST_VERSION}"
-          echo "::set-output name=GCSST_UI_VERSION::${GCSST_UI_VERSION}"
-
-      - name: display_env
-        working-directory: gcsst-ui
-        run: |
-          echo "GCSST_VERSION: $GCSST_VERSION"
-          echo "GCSST_UI_VERSION: $GCSST_UI_VERSION"
-
-      - name: deploy
-        uses: shuttle-hq/deploy-action@v2
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          shuttle-api-key: ${{ secrets.SHUTTLE_API_KEY }}
-          project-id: ${{ secrets.SHUTTLE_PROJ_ID }}
-          working-directory: gcsst-ui
+          path: ./artifacts
+
+      - name: Create and push tag
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag -a "${{ needs.determine_release.outputs.NEW_TAG }}" -m "Release ${{ needs.determine_release.outputs.NEW_TAG }}"
+          git push origin "${{ needs.determine_release.outputs.NEW_TAG }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.determine_release.outputs.NEW_TAG }}
+          files: ./artifacts/**/*
+          body: "Release of gcsst version ${{ needs.determine_release.outputs.NEW_TAG }}"
+          draft: false
+          prerelease: false
         env:
-          GCSST_VERSION: ${{ steps.get_latest_tags.outputs.GCSST_VERSION }}
-          GCSST_UI_VERSION: ${{ steps.get_latest_tags.outputs.GCSST_UI_VERSION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
