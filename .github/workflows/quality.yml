@@ -1,14 +1,14 @@
-name: quality
+name: Quality
 
 on:
   pull_request:
     branches:
-      - develop
-      - main
+      - 'main'
+      - 'rc/**'
 
 jobs:
   lint_and_test:
-    name: lint_and_test
+    name: Lint and test
     runs-on: ubuntu-latest
 
     steps:
@@ -16,13 +16,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: set_up_rust
+      - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
 
-      - name: cache_cargo_registry
+      - name: Cache cargo registry
         uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
@@ -30,7 +30,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
-      - name: cache_cargo_index
+      - name: Cache cargo index
         uses: actions/cache@v4
         with:
           path: ~/.cargo/git
@@ -38,7 +38,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-git-
 
-      - name: cache_cargo_build
+      - name: Cache cargo build
         uses: actions/cache@v4
         with:
           path: target
@@ -46,55 +46,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-build-
 
-      - name: Determine if gcsst was changed
-        id: gcsst_changed
-        run: |
-          if git diff --name-only ${{ github.base_ref }} ${{ github.head_ref }} | grep -q '^gcsst/'; then
-            echo "gcsst_changed=true" >> $GITHUB_ENV
-          else
-            echo "gcsst_changed=false" >> $GITHUB_ENV
-          fi
+      - name: Install grcov
+        run: cargo install grcov
 
-      - name: Determine if gcsst-ui was changed
-        id: gcsst_ui_changed
-        run: |
-          if git diff --name-only ${{ github.base_ref }} ${{ github.head_ref }} | grep -q '^gcsst-ui/'; then
-            echo "gcsst_ui_changed=true" >> $GITHUB_ENV
-          else
-            echo "gcsst_ui_changed=false" >> $GITHUB_ENV
-          fi
-
-      - name: Output changed projects
-        run: |
-          echo "GCSST changed: ${{ env.gcsst_changed }}"
-          echo "GCSST-UI changed: ${{ env.gcsst_ui_changed }}"
-
-      - name: Check formatting with rustfmt for gcsst
-        if: env.gcsst_changed == 'true'
-        working-directory: gcsst
+      - name: Check formatting with rustfmt
         run: cargo fmt -- --check
 
-      - name: Run clippy for gcsst
-        if: env.gcsst_changed == 'true'
-        working-directory: gcsst
+      - name: Run clippy
         run: cargo clippy -- -D warnings
 
-      - name: Run tests for gcsst
-        if: env.gcsst_changed == 'true'
-        working-directory: gcsst
-        run: cargo test --verbose
-
-      - name: Check formatting with rustfmt for gcsst-ui
-        if: env.gcsst_ui_changed == 'true'
-        working-directory: gcsst-ui
-        run: cargo fmt -- --check
-
-      - name: Run clippy for gcsst-ui
-        if: env.gcsst_ui_changed == 'true'
-        working-directory: gcsst-ui
-        run: cargo clippy -- -D warnings
-
-      - name: Run tests for gcsst-ui
-        if: env.gcsst_ui_changed == 'true'
-        working-directory: gcsst-ui
-        run: cargo test --verbose
+      - name: Run tests
+        run: cargo test
