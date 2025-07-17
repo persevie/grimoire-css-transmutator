@@ -44,7 +44,7 @@ fn main() {
     process::exit(match run_app() {
         Ok(_) => 0,
         Err(err) => {
-            eprintln!("Error: {}", err);
+            eprintln!("Error: {err}");
             1
         }
     });
@@ -55,7 +55,7 @@ fn run_app() -> AppResult<()> {
 
     match config.mode {
         Mode::Help => {
-            print!("{}", HELP_MESSAGE);
+            print!("{HELP_MESSAGE}");
             Ok(())
         }
         Mode::Paths => process_paths_mode(&config),
@@ -108,8 +108,7 @@ fn parse_args() -> AppResult<Config> {
             }
             arg if arg.starts_with('-') => {
                 return Err(GrimoireCssError::InvalidInput(format!(
-                    "Unknown option: {}",
-                    arg
+                    "Unknown option: {arg}"
                 )));
             }
             _ => {
@@ -160,8 +159,7 @@ fn process_paths_mode(config: &Config) -> AppResult<()> {
             write_to_file(&output_file.to_string_lossy(), &json_output)?;
 
             eprintln!(
-                "Transmutation complete in {:.2?}. Output written to {:?}",
-                duration, output_file
+                "Transmutation complete in {duration:.2?}. Output written to {output_file:?}"
             );
         }
     }
@@ -183,7 +181,7 @@ fn process_content_mode(config: &Config) -> AppResult<()> {
                 .write_all(json_output.as_bytes())
                 .map_err(GrimoireCssError::Io)?;
             // Print status to stderr
-            eprintln!("Transmutation complete in {:.2} seconds", duration);
+            eprintln!("Transmutation complete in {duration:.2} seconds");
         }
     }
 
@@ -200,6 +198,6 @@ fn write_to_file(path: &str, content: &str) -> AppResult<()> {
     file.write_all(content.as_bytes())
         .map_err(GrimoireCssError::Io)?;
 
-    eprintln!("Output written to {}", path);
+    eprintln!("Output written to {path}");
     Ok(())
 }
