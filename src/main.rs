@@ -1,5 +1,5 @@
-use gcsst_lib::{run_transmutation, transmute_from_content};
 use grimoire_css_lib::GrimoireCssError;
+use grimoire_css_transmutator_lib::{run_transmutation, transmute_from_content};
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Write};
@@ -7,10 +7,10 @@ use std::path::PathBuf;
 use std::process;
 
 const HELP_MESSAGE: &str = "
-Grimoire CSS Transmute (gcsst) - Convert CSS to Grimoire CSS format
+Grimoire CSS Transmutator - Convert CSS to Grimoire CSS format
 
 USAGE:
-    gcsst [OPTIONS] [INPUT]
+    grimoire_css_transmutator [OPTIONS] [INPUT]
 
 OPTIONS:
     -p, --paths           Process comma-separated list of CSS file paths or patterns
@@ -20,9 +20,9 @@ OPTIONS:
     -h, --help            Display this help message
 
 EXAMPLES:
-    gcsst -p styles.css,components.css
-    gcsst -c '.button { color: red; }' -l
-    gcsst -p '*.css' -o custom_output.json --with-oneliner
+    grimoire_css_transmutator -p styles.css,components.css
+    grimoire_css_transmutator -c '.button { color: red; }' -l
+    grimoire_css_transmutator -p '*.css' -o custom_output.json --with-oneliner
 ";
 
 type AppResult<T> = Result<T, GrimoireCssError>;
@@ -41,12 +41,6 @@ enum Mode {
 }
 
 fn main() {
-    eprintln!("⚠️  WARNING: This crate 'gcsst' is DEPRECATED!");
-    eprintln!("Please use 'grimoire_css_transmutator' instead.");
-    eprintln!("Install with: cargo install grimoire_css_transmutator");
-    eprintln!("More info: https://crates.io/crates/grimoire_css_transmutator");
-    eprintln!();
-
     process::exit(match run_app() {
         Ok(_) => 0,
         Err(err) => {
