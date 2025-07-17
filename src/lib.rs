@@ -96,7 +96,7 @@ fn generate_spells_map(state: &ParserState) -> TransmutedMap {
                 let spell = if prefix.is_empty() {
                     component.clone()
                 } else {
-                    format!("{}{}", prefix, component)
+                    format!("{prefix}{component}")
                 };
                 spells.insert(spell);
             }
@@ -158,7 +158,7 @@ fn process_css_into_raw_spells(
                         parser_state.current_class.push_str(&focus_item);
                     }
                 } else if !parser_state.current_class.is_empty() {
-                    parser_state.focus.push(format!("_{}", cow_rc_str));
+                    parser_state.focus.push(format!("_{cow_rc_str}"));
                 } else {
                     // This is a tag selector
                     parser_state.current_class.push_str(cow_rc_str);
@@ -179,7 +179,7 @@ fn process_css_into_raw_spells(
                         let base_raw_spell = if focus_str.is_empty() {
                             String::new()
                         } else {
-                            format!("{{{}}}", focus_str)
+                            format!("{{{focus_str}}}")
                         };
 
                         parser_state
@@ -227,7 +227,7 @@ fn process_css_into_raw_spells(
                     let base_raw_spell = if focus_str.is_empty() {
                         String::new()
                     } else {
-                        format!("{{{}}}", focus_str)
+                        format!("{{{focus_str}}}")
                     };
 
                     parser_state
@@ -305,11 +305,11 @@ fn process_css_into_raw_spells(
                         let mut base_raw_spell = if focus_str.is_empty() {
                             String::new()
                         } else {
-                            format!("{{{}}}", focus_str)
+                            format!("{{{focus_str}}}")
                         };
 
                         if let Some(a) = &parser_state.area {
-                            base_raw_spell = format!("{}__{}", a, base_raw_spell);
+                            base_raw_spell = format!("{a}__{base_raw_spell}");
                         }
 
                         parser_state

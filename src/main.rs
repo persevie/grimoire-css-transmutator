@@ -1,5 +1,5 @@
-use gcsst_lib::{run_transmutation, transmute_from_content};
 use grimoire_css_lib::GrimoireCssError;
+use grimoire_css_transmutator_lib::{run_transmutation, transmute_from_content};
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Write};
@@ -7,10 +7,10 @@ use std::path::PathBuf;
 use std::process;
 
 const HELP_MESSAGE: &str = "
-Grimoire CSS Transmute (gcsst) - Convert CSS to Grimoire CSS format
+Grimoire CSS Transmutator - Convert CSS to Grimoire CSS format
 
 USAGE:
-    gcsst [OPTIONS] [INPUT]
+    grimoire_css_transmutator [OPTIONS] [INPUT]
 
 OPTIONS:
     -p, --paths           Process comma-separated list of CSS file paths or patterns
@@ -20,9 +20,9 @@ OPTIONS:
     -h, --help            Display this help message
 
 EXAMPLES:
-    gcsst -p styles.css,components.css
-    gcsst -c '.button { color: red; }' -l
-    gcsst -p '*.css' -o custom_output.json --with-oneliner
+    grimoire_css_transmutator -p styles.css,components.css
+    grimoire_css_transmutator -c '.button { color: red; }' -l
+    grimoire_css_transmutator -p '*.css' -o custom_output.json --with-oneliner
 ";
 
 type AppResult<T> = Result<T, GrimoireCssError>;
@@ -41,16 +41,10 @@ enum Mode {
 }
 
 fn main() {
-    eprintln!("⚠️  WARNING: This crate 'gcsst' is DEPRECATED!");
-    eprintln!("Please use 'grimoire_css_transmutator' instead.");
-    eprintln!("Install with: cargo install grimoire_css_transmutator");
-    eprintln!("More info: https://crates.io/crates/grimoire_css_transmutator");
-    eprintln!();
-
     process::exit(match run_app() {
         Ok(_) => 0,
         Err(err) => {
-            eprintln!("Error: {}", err);
+            eprintln!("Error: {err}");
             1
         }
     });
@@ -61,7 +55,7 @@ fn run_app() -> AppResult<()> {
 
     match config.mode {
         Mode::Help => {
-            print!("{}", HELP_MESSAGE);
+            print!("{HELP_MESSAGE}");
             Ok(())
         }
         Mode::Paths => process_paths_mode(&config),
@@ -114,8 +108,7 @@ fn parse_args() -> AppResult<Config> {
             }
             arg if arg.starts_with('-') => {
                 return Err(GrimoireCssError::InvalidInput(format!(
-                    "Unknown option: {}",
-                    arg
+                    "Unknown option: {arg}"
                 )));
             }
             _ => {
@@ -166,8 +159,7 @@ fn process_paths_mode(config: &Config) -> AppResult<()> {
             write_to_file(&output_file.to_string_lossy(), &json_output)?;
 
             eprintln!(
-                "Transmutation complete in {:.2?}. Output written to {:?}",
-                duration, output_file
+                "Transmutation complete in {duration:.2?}. Output written to {output_file:?}"
             );
         }
     }
@@ -189,7 +181,7 @@ fn process_content_mode(config: &Config) -> AppResult<()> {
                 .write_all(json_output.as_bytes())
                 .map_err(GrimoireCssError::Io)?;
             // Print status to stderr
-            eprintln!("Transmutation complete in {:.2} seconds", duration);
+            eprintln!("Transmutation complete in {duration:.2} seconds");
         }
     }
 
@@ -206,6 +198,6 @@ fn write_to_file(path: &str, content: &str) -> AppResult<()> {
     file.write_all(content.as_bytes())
         .map_err(GrimoireCssError::Io)?;
 
-    eprintln!("Output written to {}", path);
+    eprintln!("Output written to {path}");
     Ok(())
 }

@@ -1,19 +1,19 @@
 [package]
-name = "gcsst"
-version = "0.9.1"
+name = "grimoire_css_transmutator"
+version = "0.9.0"
 edition = "2021"
 authors = ["Dmitrii Shatokhin <dmtrshatokhin@gmail.com>"]
 description = "A tool for seamlessly transforming CSS into Grimoire CSS spells."
 license = "MIT"
 keywords = ["css", "css-transofrmer", "styling", "web", "system"]
 categories = ["web-programming", "development-tools"]
-homepage = "https://github.com/persevie/grimoire-css-transmute"
-documentation = "https://docs.rs/grimoire-css-transmute"
-repository = "https://github.com/persevie/grimoire-css-transmute"
+homepage = "https://github.com/persevie/grimoire_css_transmutator"
+documentation = "https://docs.rs/grimoire_css_transmutator"
+repository = "https://github.com/persevie/grimoire_css_transmutator"
 include = ["src/**", "Cargo.toml", "README.md", "LICENSE"]
 
 [lib]
-name = "gcsst_lib"
+name = "grimoire_css_transmutator_lib"
 crate-type = ["lib"]
 
 [profile.release]

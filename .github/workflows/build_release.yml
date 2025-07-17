@@ -48,23 +48,23 @@ jobs:
           - name: linux_x86_64
             runs-on: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: gcsst-linux-x86_64
-            artifact_path: target/x86_64-unknown-linux-gnu/release/gcsst
+            artifact_name: grimoire_css_transmutator_linux_x86_64
+            artifact_path: target/x86_64-unknown-linux-gnu/release/grimoire_css_transmutator
           - name: macos_x86_64
             runs-on: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: gcsst-macos-x86_64
-            artifact_path: target/x86_64-apple-darwin/release/gcsst
+            artifact_name: grimoire_css_transmutator_macos_x86_64
+            artifact_path: target/x86_64-apple-darwin/release/grimoire_css_transmutator
           - name: macos_arm64
             runs-on: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: gcsst-macos-arm64
-            artifact_path: target/aarch64-apple-darwin/release/gcsst
+            artifact_name: grimoire_css_transmutator_macos_arm64
+            artifact_path: target/aarch64-apple-darwin/release/grimoire_css_transmutator
           - name: windows_x86_64
             runs-on: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: gcsst-windows-x86_64.exe
-            artifact_path: target/x86_64-pc-windows-msvc/release/gcsst.exe
+            artifact_name: grimoire_css_transmutator_windows_x86_64.exe
+            artifact_path: target/x86_64-pc-windows-msvc/release/grimoire_css_transmutator.exe
 
     steps:
       - name: Checkout Code
@@ -183,7 +183,7 @@ jobs:
         with:
           tag_name: ${{ needs.determine_release.outputs.NEW_TAG }}
           files: ./artifacts/**/*
-          body: "Release of gcsst version ${{ needs.determine_release.outputs.NEW_TAG }}"
+          body: "Release of grimoire_css_transmutator version ${{ needs.determine_release.outputs.NEW_TAG }}"
           draft: false
           prerelease: false
         env:
