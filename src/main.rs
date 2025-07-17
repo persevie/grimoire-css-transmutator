@@ -41,6 +41,12 @@ enum Mode {
 }
 
 fn main() {
+    eprintln!("⚠️  WARNING: This crate 'gcsst' is DEPRECATED!");
+    eprintln!("Please use 'grimoire_css_transmutator' instead.");
+    eprintln!("Install with: cargo install grimoire_css_transmutator");
+    eprintln!("More info: https://crates.io/crates/grimoire_css_transmutator");
+    eprintln!();
+
     process::exit(match run_app() {
         Ok(_) => 0,
         Err(err) => {
